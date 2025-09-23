@@ -1,0 +1,13 @@
+name: AssistedVision
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - numpy>=1.23
+      - opencv-python>=4.8
+      - torch>=2.0
+      - torchvision>=0.15
+      - ultralytics>=8.0
