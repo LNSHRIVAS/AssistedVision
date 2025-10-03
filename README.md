@@ -38,3 +38,9 @@ AssistiveVision/
 ├── .gitignore
 ├── LICENSE
 └── README.md
+
+# AssistedVision — Detection + Risk Zone (Milestone 1)
+
+This milestone implements **YOLOv8 object detection** and a **risk zone** tagger that marks each detection as `safe` / `warn` / `danger` with a `risk_score` (0..1).  
+The risk zone currently uses a **bottom-of-frame** heuristic (tunable).
+
