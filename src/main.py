@@ -2,7 +2,7 @@
 # ------------------------------------------------------------
 # PURPOSE (in simple words):
 #   - This is the "glue" that runs the system.
-#   - It opens a video (or webcam), gets frames, runs YOLO detection,
+#   - It opens a video (or webcam), gets frames, runs YOLO detection
 #     then runs risk assessment, and prints (or visualizes) the results.
 #
 # HOW TO RUN:
@@ -22,7 +22,7 @@ import cv2
 from detection.detector import YoloDetector
 from guidance.risk_assessor import annotate_risk, bottom_strip_polygon
 
-
+import json
 def main():
     # -----------------------------
     # 1) CONFIGURATION
@@ -52,6 +52,7 @@ def main():
     #   - Path to a video file (e.g., "data/demo.mp4")
     #   - Or 0 for webcam
     video_path = "data/demo.mp4"  # change this to your file; or set 0 for webcam
+    output_file = open("data/output.jsonl", "a")
 
     # -----------------------------
     # 2) INITIALIZE DETECTOR
@@ -103,6 +104,8 @@ def main():
 
         # For now, just print packet (you can replace with saving to file or sending to a message bus)
         print(packet)
+        output_file.write(json.dumps(packet) + "\n")
+
 
         # OPTIONAL: Visualization to "see" risk zone polygon
         # - Draw the risk polygon
@@ -136,6 +139,8 @@ def main():
     # -----------------------------
     cap.release()
     cv2.destroyAllWindows()
+    output_file.close()
+
 
 
 if __name__ == "__main__":

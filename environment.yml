@@ -1,4 +1,4 @@
-name: AssistedVision
+name: assitv
 channels:
   - defaults
   - conda-forge
