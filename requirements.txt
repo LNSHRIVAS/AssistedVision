@@ -1,11 +1,5 @@
- torch
-torchvision
-ultralytics
-numpy
-opencv-python
-scipy
-matplotlib
-pandas
-tqdm
-pyttsx3
-openai
+ultralytics>=8.0.0
+opencv-python>=4.8.0
+numpy>=1.23
+torch>=2.0.0
+torchvision>=0.15.0

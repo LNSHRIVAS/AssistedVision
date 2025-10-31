@@ -39,8 +39,26 @@ AssistiveVision/
 ├── LICENSE
 └── README.md
 
-# AssistedVision — Detection + Risk Zone (Milestone 1)
+# AssistiveVision (v5.0, code-only)
 
-This milestone implements **YOLOv8 object detection** and a **risk zone** tagger that marks each detection as `safe` / `warn` / `danger` with a `risk_score` (0..1).  
-The risk zone currently uses a **bottom-of-frame** heuristic (tunable).
+**What it does**
+- YOLOv8n detects **all COCO classes (80)**
+- Lightweight class-aware IoU tracker gives **stable track_id**, velocity, and speed
+- Per-object **risk score** = 0.55·proximity + 0.30·depth + 0.15·motion, then × social weight
+- Optional JSON/JSONL/video outputs (disabled by default)
+- Designed to be **fast, readable, and extendable** for the team
+
+## Quickstart
+```bash
+# create env (conda or venv; your choice)
+pip install -r requirements.txt
+
+# run (video file)
+export PYTHONPATH="$PWD/src:$PYTHONPATH"
+python -m src.main --source data/demo.mp4 --show --imgsz 448 --conf 0.45 --det-every 2
+
+# run (webcam)
+python -m src.main --source 0 --show
+
+
 
