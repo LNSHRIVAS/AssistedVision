@@ -82,11 +82,25 @@ def draw_overlay(frame, tracked, fps=None, scene_risk=None):
         cls = tr["cls"]
 
         # color from green→red by risk
-        color = (0, int((1 - r) * 180 + 50), int(r * 220))
+        #color = (0, int((1 - r) * 180 + 50), int(r * 220))
+        #cv2.rectangle(out, (x1, y1), (x2, y2), color, 2)
+        #lbl = f"#{rid} {cls} r={r:.2f}"
+        #cv2.putText(out, lbl, (x1, max(12, y1 - 6)), cv2.FONT_HERSHEY_SIMPLEX,
+        #            0.45, color, 1, cv2.LINE_AA)
+        # color from green→red by risk (B, G, R)
+        r255 = int(max(0, min(255, r * 255)))
+        g255 = int(max(0, min(255, (1 - r) * 255)))
+        color = (0, g255, r255)
+
         cv2.rectangle(out, (x1, y1), (x2, y2), color, 2)
+
         lbl = f"#{rid} {cls} r={r:.2f}"
-        cv2.putText(out, lbl, (x1, max(12, y1 - 6)), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.45, color, 1, cv2.LINE_AA)
+        (tw, th), _ = cv2.getTextSize(lbl, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+        txt_x, txt_y = x1, max(12, y1 - 6)
+        # background rectangle
+        cv2.rectangle(out, (txt_x - 2, txt_y - th - 2), (txt_x + tw + 2, txt_y + 2), (0,0,0), -1)
+        cv2.putText(out, lbl, (txt_x, txt_y), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255,255,255), 1, cv2.LINE_AA)
+
 
     # HUD
     y = 18
