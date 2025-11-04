@@ -26,7 +26,9 @@ class BoxTracker:
 
     def _center(self, box):
         x1, y1, x2, y2 = box
-        return [(x1 + x2) // 2, (y1 + y2) // 2]
+        # return float for smoother velocity
+        return [(x1 + x2) / 2.0, (y1 + y2) / 2.0]
+
 
     def update(self, detections, frame_shape, now=None):
         """
@@ -54,7 +56,7 @@ class BoxTracker:
             for i, d in enumerate(dets):
                 if used[i]: 
                     continue
-                if d["cls"] != tr["cls"]:
+                if d.get("cls_id", None) != tr.get("cls_id", None):
                     continue
                 ov = iou(d["box"], tr["box"])
                 if ov > best_iou:
@@ -88,12 +90,24 @@ class BoxTracker:
             if used[i]: 
                 continue
             cx, cy = self._center(d["box"])
+            #self.tracks[self.next_id] = {
+            #    "track_id": self.next_id,
+            #    "cls": d["cls"],
+            #    "conf": float(d.get("conf", 0.0)),
+            #    "box": d["box"],
+            #    "center": [cx, cy],
+            #    "velocity": [0.0, 0.0],
+            #    "speed": 0.0,
+            #    "missed": 0
+            #}
             self.tracks[self.next_id] = {
                 "track_id": self.next_id,
-                "cls": d["cls"],
+                "cls": d["cls"],          # normalized string
+                "cls_raw": d.get("cls_raw", d["cls"]),
+                "cls_id": d.get("cls_id", None),
                 "conf": float(d.get("conf", 0.0)),
                 "box": d["box"],
-                "center": [cx, cy],
+                "center": [cx, cy],       # floats
                 "velocity": [0.0, 0.0],
                 "speed": 0.0,
                 "missed": 0
