@@ -16,11 +16,23 @@ W_PROXIMITY = 0.55
 W_DEPTH     = 0.30
 W_MOTION    = 0.15
 
-# Social weights (extend as needed)
+# Social weights (extend as needed, normalize globally)
+def _norm(s): 
+    return s.replace(" ", "").replace("_", "").lower()
+
 SOCIAL_WEIGHTS = collections.defaultdict(lambda: 1.0, {
-    "person": 1.00, "bicycle": 1.10, "motorbike": 1.20, "car": 1.30,
-    "bus": 1.50, "truck": 1.45, "train": 1.40, "boat": 1.25,
-    "bench": 0.6, "chair": 0.6, "sofa": 0.6, "pottedplant": 0.8
+    _norm("person"): 1.00,
+    _norm("bicycle"): 1.10,
+    _norm("motorcycle"): 1.20,
+    _norm("car"): 1.30,
+    _norm("bus"): 1.50,
+    _norm("truck"): 1.45,
+    _norm("train"): 1.40,
+    _norm("boat"): 1.25,
+    _norm("bench"): 0.6,
+    _norm("chair"): 0.6,
+    _norm("sofa"): 0.6,
+    _norm("potted plant"): 0.8
 })
 # ---------------------------------------------------------------------
 
@@ -160,8 +172,16 @@ def main():
                     x1, y1, x2, y2 = [int(v) for v in xyxy]
                     cls_id = int(b.cls[0].item()) if b.cls is not None else -1
                     conf   = float(b.conf[0].item()) if b.conf is not None else 0.0
-                    cls    = names.get(cls_id, str(cls_id))
-                    dets.append({"cls": cls, "conf": conf, "box": [x1, y1, x2, y2]})
+                    cls_raw = names.get(cls_id, str(cls_id))
+                    # normalized class string for consistent matching/keys
+                    cls = cls_raw.replace(" ", "").replace("_", "").lower()
+                    dets.append({
+                        "cls": cls,
+                        "cls_id": cls_id,
+                        "cls_raw": cls_raw,
+                        "conf": conf,
+                        "box": [x1, y1, x2, y2]
+                    })
 
         # Track all objects
         tracked = tracker.update(dets, (H, W), now=now)
@@ -184,7 +204,7 @@ def main():
                 "scene_risk": round(scene_risk, 3),
                 "objects": [
                     {
-                        "cls": tr["cls"],
+                        "cls": tr["cls_raw"] if "cls_raw" in tr else tr["cls"],
                         "conf": round(tr.get("conf", 0.0), 4),
                         "box": tr["box"],
                         "track_id": tr["track_id"],
