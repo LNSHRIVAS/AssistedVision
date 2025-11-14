@@ -1,147 +1,96 @@
-  # src/main.py
-# ------------------------------------------------------------
-# PURPOSE (in simple words):
-#   - This is the "glue" that runs the system.
-#   - It opens a video (or webcam), gets frames, runs YOLO detection
-#     then runs risk assessment, and prints (or visualizes) the results.
-#
-# HOW TO RUN:
-#   conda activate AssistedVision
-#   python src/main.py
-#
-# TIPS:
-#   - Change "video_path" to your own file.
-#   - If you want webcam: set video_path = 0
-#   - Press ESC in the window to stop.
-# ------------------------------------------------------------
-
-import time
+"""
+Usage:
+    python main.py --video ../data/demo.mp4 --yolo yolov8n.pt --output output/out.mp4
+demo video at ../data/demo.mp4 (or pass --video).
+"""
+import os, sys, argparse, time, json
+sys.path.append(os.path.dirname(__file__))
+from detection import YoloDetector
+from tracker import TrackerManager
+from depth import DepthEstimator
+from risk import compute_risk, compute_ttc
+from prob_risk import compute_risk_prob
+from instaYOLO_seg import polygons_from_detections
+from viz import draw_overlay
+from tts import TTSWorker
 import cv2
-
-# import our two components
-from detection.detector import YoloDetector
-from guidance.risk_assessor import annotate_risk, bottom_strip_polygon
-
-import json
-def main():
-    # -----------------------------
-    # 1) CONFIGURATION
-    # -----------------------------
-    # YOLO model weights: small/fast start is "yolov8n.pt"
-    weights = "yolov8n.pt"
-
-    # Confidence & IOU thresholds (can tweak later)
-    conf = 0.25
-    iou = 0.45
-
-    # Device:
-    #   - None -> YOLO chooses
-    #   - "cpu"
-    #   - "cuda:0" if you have an NVIDIA GPU + CUDA PyTorch installed
-    device = None
-
-    # Choose RISK MODE:
-    #   - "bottom": use bottom strip of the frame as risk area
-    #   - "polygon": use your own polygon (set below)
-    #   - "none": disable risk tagging
-    risk_mode = "bottom"
-    risk_margin = 0.25  # bottom 25% of the frame is "danger"
-    custom_polygon = None  # e.g., [(100,400),(540,400),(639,479),(0,479)]
-
-    # Video input:
-    #   - Path to a video file (e.g., "data/demo.mp4")
-    #   - Or 0 for webcam
-    video_path = "data/demo.mp4"  # change this to your file; or set 0 for webcam
-    output_file = open("data/output.jsonl", "a")
-
-    # -----------------------------
-    # 2) INITIALIZE DETECTOR
-    # -----------------------------
-    detector = YoloDetector(weights=weights, conf=conf, iou=iou, device=device)
-
-    # -----------------------------
-    # 3) OPEN VIDEO / WEBCAM
-    # -----------------------------
+def process(video_path, yolo_weights, output_path, imgsz=320, skip_depth=5, no_show=False):
+    det = YoloDetector(weights=yolo_weights, imgsz=imgsz, conf=0.25)
+    tracker = TrackerManager(iou_threshold=0.3, max_age=30)
+    depth = DepthEstimator(device='cpu')
+    tts = TTSWorker()
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
-        print(f"[ERROR] Could not open video source: {video_path}")
-        return
+        raise RuntimeError(f"Cannot open video {video_path}")
+    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)); h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
+    os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
+    writer = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w,h))
+    frame_idx = 0
+    logf = open(os.path.join(os.path.dirname(output_path) or '.', 'output_log.jsonl'), 'w')
+    ego = (w/2, h)
+    try:
+        while True:
+            ret, frame = cap.read()
+            if not ret: break
+            frame_idx += 1; t0 = time.time()
+            dets = det.detect(frame)
+            bboxes = [d[:4] for d in dets]
+            # depth every skip_depth frames
+            depths = depth.estimate(frame, bboxes) if frame_idx % skip_depth == 0 else depth.estimate(frame, bboxes)
+            polys = polygons_from_detections(frame, dets)
+            tracks = tracker.update(dets, frame_idx)
+            objs = []
+            for i, tr in enumerate(tracks):
+                tb = tr['bbox']; vx, vy = tr['velocity']
+                # match detection by max iou
+                best_idx = None; best_iou = 0.0
+                for idx, bb in enumerate(bboxes):
+                    from utils import iou
+                    val = iou(tb, bb)
+                    if val > best_iou: best_iou = val; best_idx = idx
+                depth_val = depths[best_idx] if best_idx is not None and best_idx < len(depths) else 1.0
+                det_risk = compute_risk(tb, depth_val, frame.shape)
+                # prepare object state for probabilistic risk
+                cx = (tb[0]+tb[2])/2; cy = (tb[1]+tb[3])/2
+                obj_state = [cx, cy, vx, vy]
+                prob_risk, ttc_prob = compute_risk_prob(ego, obj_state, obj_cov=None, dt=0.2, horizon=3.0, n_samples=250, radius=40.0)
+                # fuse risks
+                fused = 0.6*det_risk + 0.4*prob_risk
+                objs.append({
+                    'id': int(tr['id']),
+                    'bbox': [float(x) for x in tb],
+                    'risk': float(fused),
+                    'class': -1,
+                    'polygon': polys[i].tolist() if polys and polys[i] is not None else None,
+                    'ttc': float(ttc_prob) if ttc_prob is not None else None
+                })
+            # TTS for highest risk
+            if objs:
+                top = max(objs, key=lambda o: o['risk'])
+                if top['risk'] > 0.6:
+                    side = 'left' if (top['bbox'][0]+top['bbox'][2])/2 < w*0.4 else 'right' if (top['bbox'][0]+top['bbox'][2])/2 > w*0.6 else 'ahead'
+                    msg = f"Caution: object {side}. Risk {top['risk']:.2f}."
+                    tts.speak(msg, urgency=min(1.0, (top['risk']-0.6)/0.4))
+            vis = draw_overlay(frame, objs)
+            writer.write(vis)
+            if not no_show:
+                cv2.imshow('AssistedVision', vis)
+                if cv2.waitKey(1) & 0xFF == ord('q'): break
+            logf.write(json.dumps({'frame': frame_idx, 'objects': objs}) + '\n')
+            if frame_idx % 30 == 0:
+                print(f"Frame {frame_idx} processed in {time.time()-t0:.3f}s, objs={len(objs)}")
+    finally:
+        cap.release(); writer.release(); logf.close(); tts.stop(); cv2.destroyAllWindows()
+        print('Finished. Output at', output_path)
 
-    frame_id = 0
-
-    # -----------------------------
-    # 4) MAIN LOOP: READ, DETECT, RISK, SHOW/PRINT
-    # -----------------------------
-    while True:
-        ok, frame = cap.read()
-        if not ok:
-            # End of video (or webcam error)
-            break
-
-        # Current time as float seconds
-        ts = time.time()
-
-        # Run detection on this frame → returns your required JSON
-        packet = detector.detect_frame(frame, frame_id=frame_id, ts=ts)
-        
-        # keep only classes we care about (optional)
-        INTERESTING = {
-        "person","bicycle","car","motorbike","bus","truck",
-        "chair","bench","table","sofa" 
-        }
-
-        # Add risk info (safe/danger) + polygon
-        H, W = frame.shape[:2]
-        
-        packet = annotate_risk(
-            packet,
-            frame_size=(W, H),
-            mode="bottom",            # "bottom" | "trapezoid" | "polygon" | "none"
-            margin_ratio=risk_margin,
-            polygon=custom_polygon,
-            interesting_classes=INTERESTING  # remove this arg to keep all classes
-        )
-
-        # For now, just print packet (you can replace with saving to file or sending to a message bus)
-        print(packet)
-        output_file.write(json.dumps(packet) + "\n")
-
-
-        # OPTIONAL: Visualization to "see" risk zone polygon
-        # - Draw the risk polygon
-        if "risk_zone_polygon" in packet["payload"]:
-            vis = frame.copy()
-            poly = packet["payload"]["risk_zone_polygon"]
-            # Draw polygon edges in yellow
-            for i in range(len(poly)):
-                x1, y1 = poly[i]
-                x2, y2 = poly[(i + 1) % len(poly)]
-                cv2.line(vis, (x1, y1), (x2, y2), (0, 255, 255), 2)
-
-            # Draw each detection as a box: red if danger, green if safe
-            for det in packet["payload"]["detections"]:
-                x1, y1, x2, y2 = det["box"]
-                color = (0, 255, 0) if det.get("risk_zone") == "safe" else (0, 0, 255)
-                cv2.rectangle(vis, (x1, y1), (x2, y2), color, 2)
-                label = f'{det["cls"]} {det["conf"]:.2f}'
-                cv2.putText(vis, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv2.LINE_AA)
-
-            # Show the result window
-            cv2.imshow("AssistiveVision (Risk View)", vis)
-            # ESC to quit
-            if cv2.waitKey(1) & 0xFF == 27:
-                break
-
-        frame_id += 1
-
-    # -----------------------------
-    # 5) CLEANUP
-    # -----------------------------
-    cap.release()
-    cv2.destroyAllWindows()
-    output_file.close()
-
-
-
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--video', required=True)
+    parser.add_argument('--yolo', default='yolov8n.pt')
+    parser.add_argument('--output', default='output/out.mp4')
+    parser.add_argument('--imgsz', type=int, default=320)
+    parser.add_argument('--skip_depth', type=int, default=3)
+    parser.add_argument('--no-show', action='store_true')
+    args = parser.parse_args()
+    process(args.video, args.yolo, args.output, imgsz=args.imgsz, skip_depth=args.skip_depth, no_show=args.no_show)
