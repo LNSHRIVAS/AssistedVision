@@ -57,12 +57,27 @@ def process(video_path, yolo_weights, output_path, imgsz=320, skip_depth=5, no_s
                 prob_risk, ttc_prob = compute_risk_prob(ego, obj_state, obj_cov=None, dt=0.2, horizon=3.0, n_samples=250, radius=40.0)
                 # fuse risks
                 fused = 0.6*det_risk + 0.4*prob_risk
+                
+                # find best polygon match by IoU
+                poly_idx = None
+                best_iou_poly = 0.0
+                for idx, pbox in enumerate(bboxes):
+                    from utils import iou
+                    val = iou(tb, pbox)
+                    if val > best_iou_poly:
+                        best_iou_poly = val
+                        poly_idx = idx
+
+                
                 objs.append({
                     'id': int(tr['id']),
                     'bbox': [float(x) for x in tb],
                     'risk': float(fused),
                     'class': -1,
-                    'polygon': polys[i].tolist() if polys and polys[i] is not None else None,
+                    'polygon': polys[poly_idx].tolist() 
+                    if polys and poly_idx is not None and poly_idx < len(polys) and polys[poly_idx] is not None 
+                    else None,
+#                   'polygon': polys[i].tolist() if polys and polys[i] is not None else None,
                     'ttc': float(ttc_prob) if ttc_prob is not None else None
                 })
             # TTS for highest risk
