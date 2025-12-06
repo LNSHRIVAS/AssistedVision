@@ -1,11 +1,9 @@
- torch
-torchvision
-ultralytics
-numpy
+ultralytics>=8.0.0
 opencv-python
-scipy
+torch
+torchvision
 matplotlib
-pandas
-tqdm
 pyttsx3
-openai
+scipy
+numpy
+websockets
