@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AssistedVision Mobile</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: white;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        .status {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff4444;
+            animation: pulse 2s infinite;
+        }
+        .status-dot.connected {
+            background: #44ff44;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .gyro-display {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .gyro-item {
+            text-align: center;
+        }
+        .gyro-label {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+        .gyro-value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .message-box {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            min-height: 100px;
+            margin-top: 15px;
+        }
+        .message-text {
+            font-size: 18px;
+            line-height: 1.5;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn:active {
+            transform: scale(0.95);
+            background: rgba(255, 255, 255, 0.3);
+        }
+        .instructions {
+            font-size: 14px;
+            opacity: 0.9;
+            line-height: 1.6;
+            margin-top: 10px;
+        }
+        .urgency-indicator {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        .urgency-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #44ff44, #ffff44, #ff4444);
+            width: 0%;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🦯 AssistedVision</h1>
+            <p>Mobile Companion</p>
+        </div>
+
+        <div class="card">
+            <div class="status">
+                <span>Connection Status</span>
+                <div class="status-dot" id="statusDot"></div>
+            </div>
+            <div style="font-size: 14px; opacity: 0.9;" id="statusText">
+                Connecting to server...
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom: 15px;">📱 Gyroscope</h3>
+            <div class="gyro-display">
+                <div class="gyro-item">
+                    <div class="gyro-label">ROLL</div>
+                    <div class="gyro-value" id="rollValue">0°</div>
+                </div>
+                <div class="gyro-item">
+                    <div class="gyro-label">PITCH</div>
+                    <div class="gyro-value" id="pitchValue">0°</div>
+                </div>
+                <div class="gyro-item">
+                    <div class="gyro-label">YAW</div>
+                    <div class="gyro-value" id="yawValue">0°</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom: 15px;">🔊 Voice Guidance</h3>
+            <div class="message-box">
+                <div class="message-text" id="messageText">
+                    Waiting for guidance...
+                </div>
+            </div>
+            <div class="urgency-indicator">
+                <div class="urgency-bar" id="urgencyBar"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom: 15px;">⚙️ Settings</h3>
+            <div class="controls">
+                <button class="btn" id="testBtn">Test Audio</button>
+                <button class="btn" id="calibrateBtn">Calibrate</button>
+            </div>
+            <div class="instructions">
+                <strong>Instructions:</strong><br>
+                • Keep phone in hand or attached to body<br>
+                • Ensure good WiFi connection<br>
+                • Allow microphone/speaker permissions<br>
+                • Keep screen on for best results
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration - UPDATE THIS with your PC's IP address
+        const WS_URL = 'ws://' + window.location.hostname + ':8765';
+        
+        let ws = null;
+        let gyroPermissionGranted = false;
+        let speechSynth = window.speechSynthesis;
+        
+        // DOM elements
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const rollValue = document.getElementById('rollValue');
+        const pitchValue = document.getElementById('pitchValue');
+        const yawValue = document.getElementById('yawValue');
+        const messageText = document.getElementById('messageText');
+        const urgencyBar = document.getElementById('urgencyBar');
+        const testBtn = document.getElementById('testBtn');
+        const calibrateBtn = document.getElementById('calibrateBtn');
+        
+        // Connect to WebSocket server
+        function connect() {
+            ws = new WebSocket(WS_URL);
+            
+            ws.onopen = () => {
+                console.log('Connected to server');
+                statusDot.classList.add('connected');
+                statusText.textContent = 'Connected to PC';
+                requestGyroPermission();
+            };
+            
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'audio') {
+                        handleAudioCommand(data);
+                    }
+                } catch (e) {
+                    console.error('Error parsing message:', e);
+                }
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                statusText.textContent = 'Connection error';
+            };
+            
+            ws.onclose = () => {
+                console.log('Disconnected from server');
+                statusDot.classList.remove('connected');
+                statusText.textContent = 'Disconnected. Reconnecting...';
+                setTimeout(connect, 3000);
+            };
+        }
+        
+        // Request gyroscope permission
+        async function requestGyroPermission() {
+            if (typeof DeviceOrientationEvent !== 'undefined' && 
+                typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    const permission = await DeviceOrientationEvent.requestPermission();
+                    if (permission === 'granted') {
+                        gyroPermissionGranted = true;
+                        startGyroscope();
+                    }
+                } catch (e) {
+                    console.error('Error requesting gyro permission:', e);
+                    statusText.textContent = 'Gyro permission denied';
+                }
+            } else {
+                gyroPermissionGranted = true;
+                startGyroscope();
+            }
+        }
+        
+        // Start gyroscope monitoring
+        function startGyroscope() {
+            if ('DeviceOrientationEvent' in window) {
+                window.addEventListener('deviceorientation', (event) => {
+                    const roll = event.gamma || 0;  // -90 to 90
+                    const pitch = event.beta || 0;   // -180 to 180
+                    const yaw = event.alpha || 0;    // 0 to 360
+                    
+                    // Update display
+                    rollValue.textContent = Math.round(roll) + '°';
+                    pitchValue.textContent = Math.round(pitch) + '°';
+                    yawValue.textContent = Math.round(yaw) + '°';
+                    
+                    // Send to server
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            type: 'gyro',
+                            roll: roll,
+                            pitch: pitch,
+                            yaw: yaw
+                        }));
+                    }
+                }, true);
+            } else {
+                statusText.textContent = 'Gyroscope not supported';
+            }
+        }
+        
+        // Handle audio command from server
+        function handleAudioCommand(data) {
+            const { text, urgency, side } = data;
+            
+            // Update UI
+            messageText.textContent = text;
+            urgencyBar.style.width = (urgency * 100) + '%';
+            
+            // Speak using Web Speech API
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0 + (urgency * 0.5);  // Speed up for urgency
+            utterance.volume = Math.min(1.0, 0.7 + (urgency * 0.3));
+            utterance.pitch = 1.0;
+            
+            // Cancel any ongoing speech and speak
+            speechSynth.cancel();
+            speechSynth.speak(utterance);
+            
+            // Haptic feedback if supported
+            if ('vibrate' in navigator) {
+                const pattern = urgency > 0.7 ? [100, 50, 100, 50, 100] : [100];
+                navigator.vibrate(pattern);
+            }
+        }
+        
+        // Test button
+        testBtn.addEventListener('click', () => {
+            handleAudioCommand({
+                text: 'Test message. Audio is working correctly.',
+                urgency: 0.5,
+                side: 'ahead'
+            });
+        });
+        
+        // Calibrate button
+        calibrateBtn.addEventListener('click', () => {
+            if (!gyroPermissionGranted) {
+                requestGyroPermission();
+            } else {
+                alert('Gyroscope already active. Hold phone upright and level for best results.');
+            }
+        });
+        
+        // Initialize
+        connect();
+        
+        // Keep screen awake if possible
+        if ('wakeLock' in navigator) {
+            let wakeLock = null;
+            const requestWakeLock = async () => {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Screen wake lock acquired');
+                } catch (e) {
+                    console.error('Wake lock error:', e);
+                }
+            };
+            requestWakeLock();
+            
+            document.addEventListener('visibilitychange', () => {
+                if (wakeLock !== null && document.visibilityState === 'visible') {
+                    requestWakeLock();
+                }
+            });
+        }
+    </script>
+</body>
+</html>
