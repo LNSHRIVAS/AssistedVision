@@ -42,7 +42,7 @@ It integrates several CV components—YOLOv8 detection, MiDaS depth estimation, 
 
 ---
 
-## ⚠️ Risk Evaluation -- `risk.py` and `prob_risk.py`
+## Risk Evaluation -- `risk.py` and `prob_risk.py`
 Risk is computed from:
 
 - object distance (MiDaS depth)  
