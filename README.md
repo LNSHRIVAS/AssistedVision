@@ -1,4 +1,4 @@
-# 👁️ AssistedVision  
+# AssistedVision  
 ![Python Version](https://img.shields.io/badge/Python-3.10+-blue.svg)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-lightgrey)
 ![YOLOv8](https://img.shields.io/badge/YOLOv8-Object%20Detection-green)
@@ -8,46 +8,41 @@
 
 ---
 
-## 📘 Project Summary  
+## Project Summary  
 **AssistedVision** is an end-to-end computer vision system that processes video input in real time, detects objects, estimates their distance, evaluates risk, identifies free walking gaps, predicts safe turning directions, and generates spoken audio feedback.  
 
 It integrates several CV components—YOLOv8 detection, MiDaS depth estimation, Kalman tracking, risk scoring, passable-gap detection, turn prediction, and optional mobile audio streaming—into one complete assistive perception pipeline.
 
 ---
 
-# 🚀 Features
+# Features
 
-## 🔍 Object Detection (YOLOv8)  
+## Object Detection (YOLOv8) -- `detection.py`
 - Runs via Ultralytics YOLOv8  
 - Performs detection every frame  
 - Filters predictions by confidence threshold  
 - Produces bounding boxes + class labels  
 
-*(See `detection.py` for implementation.)*
-
 ---
 
-## 📏 Depth Estimation (MiDaS)  
+## Depth Estimation (MiDaS) -- `depth.py`
 - Uses MiDaS (DPT-based) model  
 - Produces full-frame depth map  
 - Extracts median depth per object bounding box  
 - Provides relative distance estimation  
 
-*(See `depth.py`.)*
-
 ---
 
-## 🎯 Multi-Object Tracking  
+## Multi-Object Tracking -- `tracker.py`
 - Kalman filter based tracker  
 - IoU association + ID persistence  
 - Smooth motion trajectories  
 - Handles temporary occlusions  
 
-*(See `tracker.py`.)*
 
 ---
 
-## ⚠️ Risk Evaluation  
+## ⚠️ Risk Evaluation -- `risk.py` and `prob_risk.py`
 Risk is computed from:
 
 - object distance (MiDaS depth)  
@@ -61,20 +56,18 @@ The engine generates:
 - **distance-aware messages**  
 - **object-position descriptions (“ahead”, “left”, “right”)**
 
-*(Logic in `risk.py` and `prob_risk.py`.)*
-
 ---
 
-## 🧭 Navigation & Path Guidance  
+## Navigation & Path Guidance  
 
-### ✔ Passable Gap Detection  
+### Passable Gap Detection  
 From `path_finder.py`:  
 - analyzes object bounding boxes  
 - identifies **free vertical gaps**  
 - chooses **widest traversable path**  
 - used to determine safe forward direction
 
-### ✔ Turn Detection  
+### Turn Detection  
 - if no safe forward gap is found → turn prediction  
 - chooses **left** or **right** based on depth + empty space  
 - audio output:  
@@ -82,7 +75,7 @@ From `path_finder.py`:
   - “Turn right”  
   - “Clear ahead”  
 
-### ✔ Clock-Position Mapping  
+### Clock-Position Mapping  
 Objects are mapped to **relative angular zones**:  
 - “12 o’clock”  
 - “2 o’clock”  
@@ -91,7 +84,7 @@ for intuitive spoken feedback.
 
 ---
 
-## 🔊 Audio Output (TTS)
+## Audio Output (TTS) -- `tts.py` and `mobile_server.py`
 
 Two modes:
 
@@ -99,16 +92,14 @@ Two modes:
 - Uses Windows-TTS (PowerShell SAPI)
 - Plays prioritized spoken messages
 
-### **2) Mobile Mode (optional)**  
+### **2) Mobile Mode (optional for Android)**  
 - Browser-based audio via WebSocket  
 - Phone receives all spoken guidance  
-- Phone can send gyro data back (future use)
-
-*(See `tts.py` and `mobile_server.py`.)*
+- Phone can send gyro data back for future use
 
 ---
 
-## 📱 Mobile Companion
+## Mobile Companion
 
 To enable mobile mode:
 
@@ -117,7 +108,7 @@ python src/main.py --camera 0 --mobile
 ```
 Open mobile.html on your phone (must be on the same WiFi).
 
-## 🛠 System Architecture
+## System Architecture
 
                ┌──────────────────────────────┐
                │        Camera / Video        │
@@ -143,27 +134,27 @@ Open mobile.html on your phone (must be on the same WiFi).
                │        Audio Output (TTS)    │
                └──────────────────────────────┘
 
-# ⚙ Installation
+# Installation
 
 To set up the environment and run the project, follow these steps:
 
-## 1️⃣ Clone the repository
+## 1. Clone the repository
 ```bash
 git clone https://github.com/<your-username>/AssistedVision.git
 cd AssistedVision
 ```
 
-## 2️⃣ Create a Conda environment
+## 2. Create a Conda environment
 ```bash
 conda create -n assistedvision python=3.10 -y
 conda activate assistedvision
 ```
-## 3️⃣ Install dependencies
+## 3. Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-## 📁 Project Structure
+## Project Structure
 ```text
 AssistedVision/
 ├── data/
@@ -201,7 +192,7 @@ AssistedVision/
 └── COMPREHENSIVE_PROJECT_SUMMARY.md  # Full technical write-up
 ```
 
-# ▶️ How to Run the System
+# How to Run the System
 
 AssistedVision can be run in two main modes:
 
@@ -211,7 +202,7 @@ AssistedVision can be run in two main modes:
 
 ---
 
-## 📷 Option 1 — Run in Real-Time with Your Webcam
+## Option 1 — Run in Real-Time with Your Webcam
 
 ### Steps:
 1. Connect your webcam.
@@ -222,7 +213,7 @@ AssistedVision can be run in two main modes:
 python src/main.py --camera 0 --yolo yolov8n.pt --output webcam_output.mp4
 ```
 
-## 🎞️ Option 2 — Run the System on a Video File
+## Option 2 — Run the System on a Video File
 
 Step 1 — Put your video inside the data/ folder:
 ```bash
@@ -234,7 +225,7 @@ Step 2 — Run this command:
 python src/main.py --video data/myvideo.mp4 --yolo yolov8n.pt --output result.mp4
 ```
 
-## 📱 Option 3 — Android Mobile Mode (Phone Camera + Phone Audio + Gyroscope)
+## Option 3 — Android Mobile Mode (Phone Camera + Phone Audio + Gyroscope)
 
 > **Note:** Full mobile mode (phone camera + audio + gyro) is currently **tested and supported on Android**.
 
@@ -242,7 +233,7 @@ In this mode, your **Android phone acts as the camera and audio device**, while 
 
 ---
 
-### 1️⃣ Set up the Android phone camera (IP Webcam)
+### 1. Set up the Android phone camera (IP Webcam)
 
 1. On your Android phone, install **“IP Webcam”** from the Google Play Store.
 2. Open the app and scroll down to **“Start server”**.
@@ -257,7 +248,7 @@ You will use this in the --camera argument.
 
 Make sure the phone and laptop are on the same WiFi network.
 
-### 2️⃣ Start AssistedVision on the laptop (using phone camera)
+### 2. Start AssistedVision on the laptop (using phone camera)
 In a terminal on your laptop, inside the project folder, run:
 ```bash
 python src/main.py \
@@ -277,7 +268,7 @@ Run YOLOv8, depth estimation, tracking, risk analysis, and navigation on the lap
 
 Start the mobile communication server for audio + gyroscope
 
-### 3️⃣ Serve the mobile companion page from the laptop
+### 3. Serve the mobile companion page from the laptop
 
 From the project root on the laptop, start a simple HTTP server:
 ```bash
@@ -285,7 +276,7 @@ python -m http.server 8000
 ```
 This makes mobile.html available over the network.
 
-### 4️⃣ Connect the Android phone to the mobile companion
+### 4. Connect the Android phone to the mobile companion
 
 1. On the same Android phone, open Chrome.
 2. In the address bar, go to:
@@ -302,7 +293,7 @@ http://192.168.0.20:8000/mobile.html
 
 4. The status on the page should indicate that the phone is connected to the PC.
 
-### ⚡ Optional performance settings (recommended for mobile mode)
+### Optional performance settings (recommended for mobile mode)
 
 If the stream is slow, you can add:
 ```bash
