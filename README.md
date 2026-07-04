@@ -11,7 +11,7 @@
 ## Project Summary  
 **AssistedVision** is an end-to-end computer vision system that processes video input in real time, detects objects, estimates their distance, evaluates risk, identifies free walking gaps, predicts safe turning directions, and generates spoken audio feedback.  
 
-It integrates several CV components—YOLOv8 detection, MiDaS depth estimation, Kalman tracking, risk scoring, passable-gap detection, turn prediction, and optional mobile audio streaming—into one complete assistive perception pipeline.
+It integrates several CV components-YOLOv8 detection, MiDaS depth estimation, Kalman tracking, risk scoring, passable-gap detection, turn prediction, and optional mobile audio streaming-into one complete assistive perception pipeline.
 
 ---
 
